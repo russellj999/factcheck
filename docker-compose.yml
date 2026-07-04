@@ -33,7 +33,20 @@ services:
       redis:
         condition: service_healthy
 
+  # ── Worker ───────────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: factcheck-worker
+    command: python -m app.worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   redis_data:
   sqlite_data:
-
