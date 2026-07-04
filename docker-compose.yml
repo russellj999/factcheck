@@ -39,7 +39,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: factcheck-worker
-    command: python -m app.worker
+    command: python worker.py
     environment:
       REDIS_URL: redis://redis:6379/0
     depends_on:
