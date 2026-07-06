@@ -1,5 +1,8 @@
+version: "3.9"
 
 services:
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: factcheck-redis
@@ -13,37 +16,23 @@ services:
       timeout: 3s
       retries: 5
 
+  # ── FastAPI (optional — you can also run uvicorn locally) ────────────────────
   api:
     build:
-      context: ./api
+      context: .
       dockerfile: Dockerfile
     container_name: factcheck-api
     environment:
       REDIS_URL: redis://redis:6379/0
       SQLITE_PATH: /data/factcheck.db
     volumes:
-      - ./data:/data
+      - sqlite_data:/data
     ports:
       - "8000:8000"
     depends_on:
       redis:
         condition: service_healthy
 
-  worker:
-    build:
-      context: .
-      dockerfile: worker/Dockerfile
-    container_name: factcheck-worker
-    command: python -m app.worker
-    environment:
-      REDIS_URL: redis://redis:6379/0
-      SQLITE_PATH: /data/factcheck.db
-    volumes:
-      - ./data:/data
-    depends_on:
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    
 volumes:
   redis_data:
+  sqlite_data:

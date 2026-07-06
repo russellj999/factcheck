@@ -28,7 +28,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ── Redis ─────────────────────────────────────────────────────────────────────
-r = redis_lib.from_url(settings.redis_url, decode_responses=True)
+# Use decode_responses=False so RQ internals (which expect bytes) work correctly.
+r = redis_lib.from_url(settings.redis_url, decode_responses=False)
 
 LOCK_PREFIX    = "factcheck:lock:"
 PAYLOAD_PREFIX = "factcheck:payload:"
@@ -96,6 +97,10 @@ def process_factcheck(post_id: str) -> dict:
         logger.error("[%s] Payload missing from Redis (expired?).", post_id)
         update_factcheck(post_id, status="failed", error="Payload expired from Redis")
         return {"error": "payload_missing"}
+
+    # raw will be bytes when decode_responses=False; decode to str for json.loads
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8")
 
     payload  = json.loads(raw)
     content  = payload.get("content", "")
@@ -178,7 +183,10 @@ def _handle_failure(post_id: str, attempts: int, error: str) -> None:
 
 # ── Run worker directly: python worker.py ─────────────────────────────────────
 if __name__ == "__main__":
-    from rq import Worker
-    logger.info("Starting RQ worker on queue '%s'…", settings.worker_queue_name)
-    worker = Worker([settings.worker_queue_name], connection=r)
-    worker.work(with_scheduler=False)
+    try:
+        from rq import Worker
+        logger.info("Starting RQ worker on queue '%s'…", settings.worker_queue_name)
+        worker = Worker([settings.worker_queue_name], connection=r)
+        worker.work(with_scheduler=False)
+    except Exception:
+        logger.exception("Worker failed to start.")
