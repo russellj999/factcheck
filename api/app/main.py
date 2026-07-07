@@ -1,11 +1,3 @@
-"""
-Async Fact-Check API
-====================
-POST /ingest               — Redis lock → DB insert → RQ enqueue → 202
-GET  /fact-check/{post_id} — Poll for status and verdict
-GET  /health               — Liveness probe
-"""
-
 import json
 import logging
 from typing import Optional
@@ -17,6 +9,9 @@ from rq import Queue
 from app.config import settings
 from app.db import get_factcheck, insert_factcheck
 from app.models import IngestRequest, IngestResponse, FactCheckResponse
+
+# Import the extract router and include it on the app
+from app.extract import router as extract_router
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -34,6 +29,9 @@ app = FastAPI(
         "POST /ingest → 202, then poll GET /fact-check/{post_id}."
     ),
 )
+
+# Include the extract router
+app.include_router(extract_router)
 
 # ── Redis + RQ (initialized on startup to avoid import-time failures) ──────────
 r: Optional[redis_lib.Redis] = None
