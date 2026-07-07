@@ -1,0 +1,21 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtualenvs and env files
+venv/
+.env
+
+# Databases and local data
+data/
+*.db
+
+# Editor and OS
+.vscode/
+.DS_Store
+
+# Build artifacts and backups
+dockerfile.bak
+api/app/db_init.py.bak
