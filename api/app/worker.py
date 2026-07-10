@@ -36,6 +36,43 @@ PAYLOAD_PREFIX = "factcheck:payload:"
 VERDICT_PREFIX = "factcheck:verdict:"   # 24-hour read cache
 
 
+def extract_media(payload):
+    """
+    Backwards-compatible wrapper so RQ can import app.worker.extract_media.
+
+    Accepts either:
+      - a dict payload containing at least "post_id" (and optional image_url/content),
+      - or a post_id string.
+
+    If a dict is provided, the wrapper writes the payload into Redis under
+    PAYLOAD_PREFIX{post_id} so process_factcheck can read it, then calls
+    process_factcheck(post_id).
+    """
+    # Determine post_id
+    if isinstance(payload, dict):
+        post_id = payload.get("post_id")
+        if not post_id:
+            logger.error("extract_media called with payload missing post_id: %r", payload)
+            return {"error": "missing_post_id"}
+
+        # Persist payload into Redis so process_factcheck can retrieve it.
+        # Use a TTL to avoid stale payloads lingering forever.
+        try:
+            r.setex(f"{PAYLOAD_PREFIX}{post_id}", 3600, json.dumps(payload))
+        except Exception as exc:
+            logger.exception("Failed to write payload to Redis for %s: %s", post_id, exc)
+            return {"error": "redis_write_failed", "detail": str(exc)}
+    else:
+        post_id = payload
+
+    # Delegate to the canonical processing function
+    try:
+        return process_factcheck(post_id)
+    except Exception as exc:
+        logger.exception("extract_media wrapper caught exception for %s: %s", post_id, exc)
+        return {"error": "processing_exception", "detail": str(exc)}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Stubbed pipeline — replace each function body with real LLM calls
 # ══════════════════════════════════════════════════════════════════════════════
