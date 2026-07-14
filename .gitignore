@@ -19,3 +19,7 @@ data/
 # Build artifacts and backups
 dockerfile.bak
 api/app/db_init.py.bak
+
+.venv
+
+
