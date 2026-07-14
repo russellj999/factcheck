@@ -1,0 +1,13 @@
+{
+  "_comment": "Re-submit this with the same ingest_id as post_verify_single.json to verify idempotency — expect HTTP 202 with the EXISTING verify_job_id returned.",
+  "ingest_id": "ingest-2026-sample-001",
+  "claims": [
+    {
+      "text": "The Great Wall of China is visible from space with the naked eye.",
+      "source_url": "https://example.com/article-001",
+      "metadata": {"article_id": "art-001", "extracted_by": "tier1-ingest"}
+    }
+  ],
+  "priority": 0,
+  "callback_url": null
+}

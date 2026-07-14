@@ -1,0 +1,22 @@
+{
+  "ingest_id": "ingest-2026-sample-002",
+  "claims": [
+    {
+      "text": "Albert Einstein failed mathematics in school.",
+      "source_url": "https://example.com/article-002",
+      "metadata": {"article_id": "art-002", "extracted_by": "tier1-ingest"}
+    },
+    {
+      "text": "Lightning never strikes the same place twice.",
+      "source_url": "https://example.com/article-003",
+      "metadata": {"article_id": "art-003", "extracted_by": "tier1-ingest"}
+    },
+    {
+      "text": "Humans only use 10% of their brain.",
+      "source_url": "https://example.com/article-004",
+      "metadata": {"article_id": "art-004", "extracted_by": "tier1-ingest"}
+    }
+  ],
+  "priority": 3,
+  "callback_url": "https://hooks.example.com/fact-check-results"
+}

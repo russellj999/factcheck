@@ -1,0 +1,15 @@
+{
+  "ingest_id": "ingest-2026-sample-001",
+  "claims": [
+    {
+      "text": "The Great Wall of China is visible from space with the naked eye.",
+      "source_url": "https://example.com/article-001",
+      "metadata": {
+        "article_id": "art-001",
+        "extracted_by": "tier1-ingest"
+      }
+    }
+  ],
+  "priority": 0,
+  "callback_url": null
+}
