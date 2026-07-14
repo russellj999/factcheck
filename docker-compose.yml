@@ -1,49 +1,113 @@
+# =============================================================================
+# docker-compose.yml — Tier-2 Fact-Check LLM — Checkpoint A
+# =============================================================================
+
+x-common-env: &common-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:-factcheck}
+  POSTGRES_USER: ${POSTGRES_USER:-factcheck}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-factcheck}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-factcheck}:${POSTGRES_PASSWORD:-factcheck}@postgres:5432/${POSTGRES_DB:-factcheck}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_URL: redis://redis:6379/0
+  RQ_QUEUE_NAME: ${RQ_QUEUE_NAME:-verify}
+  RQ_JOB_TIMEOUT: ${RQ_JOB_TIMEOUT:-300}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  IDEMPOTENCY_CHECK: ${IDEMPOTENCY_CHECK:-true}
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-factcheck}
+      POSTGRES_USER: ${POSTGRES_USER:-factcheck}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-factcheck}
+    ports:
+      - "${POSTGRES_PORT_EXTERNAL:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-factcheck} -d ${POSTGRES_DB:-factcheck}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   redis:
     image: redis:7-alpine
-    container_name: factcheck-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: >
+      sh -c "
+        echo 'Waiting for postgres...' &&
+        until pg_isready -h postgres -U ${POSTGRES_USER:-factcheck}; do sleep 1; done &&
+        echo 'Applying schema...' &&
+        psql $$DATABASE_URL -f /app/sql/001_schema.sql &&
+        echo 'Applying seed...' &&
+        psql $$DATABASE_URL -f /app/sql/002_seed.sql &&
+        echo 'DB init complete.'
+      "
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   api:
     build:
-      context: ./api
-      dockerfile: Dockerfile
-    container_name: factcheck-api
+      context: .
+      dockerfile: Dockerfile.api
+    command: >
+      uvicorn api.main:app
+        --host 0.0.0.0
+        --port 8000
     environment:
-      REDIS_URL: redis://redis:6379/0
-      SQLITE_PATH: /data/factcheck.db
-    volumes:
-      - ./data:/data
+      <<: *common-env
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
     ports:
-      - "8000:8000"
+      - "8010:8000"
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8010/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   worker:
     build:
       context: .
-      dockerfile: worker/Dockerfile
-    container_name: factcheck-worker
-    command: python -m app.worker
+      dockerfile: Dockerfile.worker
+    command: python -m worker.run_worker
     environment:
-      REDIS_URL: redis://redis:6379/0
-      SQLITE_PATH: /data/factcheck.db
-    volumes:
-      - ./data:/data
+      <<: *common-env
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     restart: unless-stopped
-    
+
 volumes:
-  redis_data:
+  postgres_data:
